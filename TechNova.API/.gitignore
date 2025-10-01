@@ -1,1 +1,23 @@
-﻿
+﻿## Visual Studio / .NET
+.vs/
+bin/
+obj/
+Debug/
+Release/
+*.user
+*.suo
+*.cache
+*.log
+*.dbmdl
+*.bak
+*.vscode/
+*.swp
+
+# Archivos de configuración locales
+appsettings.Development.json
+
+# Archivos generados
+*.dll
+*.exe
+*.pdb
+*.vsidx

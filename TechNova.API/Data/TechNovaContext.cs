@@ -77,20 +77,34 @@ public partial class TechNovaContext : DbContext
             entity.ToTable("clientes");
 
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Activo)
-                .HasDefaultValue(true)
-                .HasColumnName("activo");
+
+            entity.Property(e => e.Nombre)
+                .HasMaxLength(100)
+                .IsRequired() // NOT NULL en la BD
+                .HasColumnName("nombre");
+
+            entity.Property(e => e.Apellido)
+                .HasMaxLength(50)
+                .HasColumnName("apellido");
+
+            entity.Property(e => e.TipoDoc)
+                .HasMaxLength(10)
+                .HasColumnName("tipo_doc");
+
+            entity.Property(e => e.Documento)
+                .HasColumnName("documento");
+
             entity.Property(e => e.Correo)
                 .HasMaxLength(100)
                 .HasColumnName("correo");
-            entity.Property(e => e.Direccion).HasColumnName("direccion");
-            entity.Property(e => e.Nombre)
-                .HasMaxLength(100)
-                .HasColumnName("nombre");
-            entity.Property(e => e.Telefono)
-                .HasMaxLength(20)
-                .HasColumnName("telefono");
+
+            entity.Property(e => e.Estado)
+                .HasColumnName("estado");
+
+            // Restricción UNIQUE (documento)
+            entity.HasIndex(e => e.Documento, "clientes_documento_key").IsUnique();
         });
+
 
         modelBuilder.Entity<Compra>(entity =>
         {

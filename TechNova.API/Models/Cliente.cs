@@ -7,15 +7,18 @@ public partial class Cliente
 {
     public int Id { get; set; }
 
-    public string Nombre { get; set; } = null!;
+    public string Nombre { get; set; } = null!;  // NOT NULL en BD
 
-    public string? Telefono { get; set; }
+    public string? Apellido { get; set; }        // Puede ser NULL
 
-    public string? Correo { get; set; }
+    public string? TipoDoc { get; set; }         // Puede ser NULL
 
-    public string? Direccion { get; set; }
+    public int? Documento { get; set; }          // Puede ser NULL en la BD
 
-    public bool Activo { get; set; }
+    public string? Correo { get; set; }          // Puede ser NULL
 
+    public bool? Estado { get; set; }            // Puede ser NULL en la BD
+
+    // Relación con Ventas (1 Cliente -> N Ventas)
     public virtual ICollection<Venta> Venta { get; set; } = new List<Venta>();
 }
