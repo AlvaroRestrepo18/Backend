@@ -328,23 +328,26 @@ public partial class TechNovaContext : DbContext
             entity.ToTable("servicios");
 
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Activo)
-                .HasDefaultValue(true)
-                .HasColumnName("activo");
-            entity.Property(e => e.Descripcion).HasColumnName("descripcion");
-            entity.Property(e => e.FkCategoria).HasColumnName("fk_categoria");
+
+            entity.Property(e => e.CategoriaId).HasColumnName("categoria_id");
+
             entity.Property(e => e.Nombre)
                 .HasMaxLength(100)
                 .HasColumnName("nombre");
+
+            entity.Property(e => e.Detalles).HasColumnName("detalles");
+
             entity.Property(e => e.Precio)
                 .HasPrecision(12, 2)
                 .HasColumnName("precio");
 
-            entity.HasOne(d => d.FkCategoriaNavigation).WithMany(p => p.Servicios)
-                .HasForeignKey(d => d.FkCategoria)
+            entity.HasOne(d => d.Categoria)
+                .WithMany(p => p.Servicios)
+                .HasForeignKey(d => d.CategoriaId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("servicios_categoria_fk");
+                .HasConstraintName("servicios_categoria_id_fkey");
         });
+
 
         modelBuilder.Entity<Servicioxventum>(entity =>
         {
@@ -353,11 +356,22 @@ public partial class TechNovaContext : DbContext
             entity.ToTable("servicioxventa");
 
             entity.Property(e => e.Id).HasColumnName("id");
+
             entity.Property(e => e.FkServicio).HasColumnName("fk_servicio");
+
             entity.Property(e => e.FkVenta).HasColumnName("fk_venta");
+
             entity.Property(e => e.Precio)
                 .HasPrecision(12, 2)
                 .HasColumnName("precio");
+
+            entity.Property(e => e.Detalles)
+                .HasMaxLength(300)
+                .HasColumnName("detalles");
+
+            entity.Property(e => e.ValorTotal)
+                .HasPrecision(10, 2)
+                .HasColumnName("valor_total");
 
             entity.HasOne(d => d.FkServicioNavigation).WithMany(p => p.Servicioxventa)
                 .HasForeignKey(d => d.FkServicio)
@@ -369,6 +383,7 @@ public partial class TechNovaContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("servicioxventa_venta_fk");
         });
+
 
         modelBuilder.Entity<Usuario>(entity =>
         {
@@ -403,20 +418,29 @@ public partial class TechNovaContext : DbContext
             entity.ToTable("ventas");
 
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Fecha)
-                .HasDefaultValueSql("now()")
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("fecha");
+
+            entity.Property(e => e.fecha)
+            .HasColumnType("date")
+            .HasDefaultValueSql("now()");
+
+
             entity.Property(e => e.FkCliente).HasColumnName("fk_cliente");
+
             entity.Property(e => e.Total)
                 .HasPrecision(12, 2)
                 .HasColumnName("total");
+
+            // 👇 Nuevo mapeo del campo Estado
+            entity.Property(e => e.Estado)
+                .HasColumnName("estado")
+                .HasDefaultValueSql("true"); // opcional si lo pusiste en la tabla
 
             entity.HasOne(d => d.FkClienteNavigation).WithMany(p => p.Venta)
                 .HasForeignKey(d => d.FkCliente)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("ventas_cliente_fk");
         });
+
 
         modelBuilder.HasSequence("categorias_id_seq");
         modelBuilder.HasSequence("clientes_id_seq");

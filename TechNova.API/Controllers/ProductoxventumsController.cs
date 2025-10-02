@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TechNova.API.Data;
 using TechNova.API.Models;
@@ -21,38 +16,84 @@ namespace TechNova.API.Controllers
             _context = context;
         }
 
-        // GET: api/Productoxventums
+        // ✅ GET: api/Productoxventums
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Productoxventum>>> GetProductoxventa()
+        public async Task<ActionResult<IEnumerable<Productoxventum>>> GetAll()
         {
-            return await _context.Productoxventa.ToListAsync();
+            return await _context.Productoxventa
+                .Include(p => p.Producto)
+                .Include(v => v.Venta)
+                .ToListAsync();
         }
 
-        // GET: api/Productoxventums/5
+        // ✅ GET: api/Productoxventums/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<Productoxventum>> GetProductoxventum(int id)
+        public async Task<ActionResult<Productoxventum>> GetById(int id)
         {
-            var productoxventum = await _context.Productoxventa.FindAsync(id);
+            var productoVenta = await _context.Productoxventa
+                .Include(p => p.Producto)
+                .Include(v => v.Venta)
+                .FirstOrDefaultAsync(x => x.Id == id);
 
-            if (productoxventum == null)
-            {
+            if (productoVenta == null)
                 return NotFound();
-            }
 
-            return productoxventum;
+            return productoVenta;
         }
 
-        // PUT: api/Productoxventums/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutProductoxventum(int id, Productoxventum productoxventum)
+        // ✅ GET: api/Productoxventums/productoxventa/5  (productos de una venta)
+        [HttpGet("productoxventa/{ventaId}")]
+        public async Task<ActionResult<IEnumerable<Productoxventum>>> GetByVentaId(int ventaId)
         {
-            if (id != productoxventum.Id)
+            var productos = await _context.Productoxventa
+                .Include(p => p.Producto)
+                .Where(x => x.VentaId == ventaId)
+                .ToListAsync();
+
+            return productos;
+        }
+
+        // ✅ GET: api/Productoxventums/byproducto/3 (ventas en las que participa un producto)
+        [HttpGet("byproducto/{productoId}")]
+        public async Task<ActionResult<IEnumerable<Productoxventum>>> GetByProductoId(int productoId)
+        {
+            var ventas = await _context.Productoxventa
+                .Include(v => v.Venta)
+                .Where(x => x.ProductoId == productoId)
+                .ToListAsync();
+
+            return ventas;
+        }
+
+        // ✅ POST: api/Productoxventums
+        [HttpPost]
+        public async Task<ActionResult<Productoxventum>> Create(Productoxventum productoVenta)
+        {
+            // Recalcular valor total si no viene
+            if (!productoVenta.ValorTotal.HasValue && productoVenta.Cantidad.HasValue)
             {
-                return BadRequest();
+                productoVenta.ValorTotal = productoVenta.ValorUnitario * productoVenta.Cantidad.Value;
             }
 
-            _context.Entry(productoxventum).State = EntityState.Modified;
+            _context.Productoxventa.Add(productoVenta);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetById), new { id = productoVenta.Id }, productoVenta);
+        }
+
+        // ✅ PUT: api/Productoxventums/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, Productoxventum productoVenta)
+        {
+            if (id != productoVenta.Id)
+                return BadRequest();
+
+            if (!productoVenta.ValorTotal.HasValue && productoVenta.Cantidad.HasValue)
+            {
+                productoVenta.ValorTotal = productoVenta.ValorUnitario * productoVenta.Cantidad.Value;
+            }
+
+            _context.Entry(productoVenta).State = EntityState.Modified;
 
             try
             {
@@ -60,49 +101,27 @@ namespace TechNova.API.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!ProductoxventumExists(id))
-                {
+                if (!_context.Productoxventa.Any(e => e.Id == id))
                     return NotFound();
-                }
                 else
-                {
                     throw;
-                }
             }
 
             return NoContent();
         }
 
-        // POST: api/Productoxventums
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPost]
-        public async Task<ActionResult<Productoxventum>> PostProductoxventum(Productoxventum productoxventum)
-        {
-            _context.Productoxventa.Add(productoxventum);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetProductoxventum", new { id = productoxventum.Id }, productoxventum);
-        }
-
-        // DELETE: api/Productoxventums/5
+        // ✅ DELETE: api/Productoxventums/5
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteProductoxventum(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var productoxventum = await _context.Productoxventa.FindAsync(id);
-            if (productoxventum == null)
-            {
+            var productoVenta = await _context.Productoxventa.FindAsync(id);
+            if (productoVenta == null)
                 return NotFound();
-            }
 
-            _context.Productoxventa.Remove(productoxventum);
+            _context.Productoxventa.Remove(productoVenta);
             await _context.SaveChangesAsync();
 
             return NoContent();
-        }
-
-        private bool ProductoxventumExists(int id)
-        {
-            return _context.Productoxventa.Any(e => e.Id == id);
         }
     }
 }

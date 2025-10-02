@@ -11,13 +11,14 @@ public partial class Productoxventum
 
     public int VentaId { get; set; }
 
-    public int? Cantidad { get; set; }  // en la BD no es NOT NULL, así que puede ser null
+    public int? Cantidad { get; set; }  // en la BD puede ser null
 
     public decimal ValorUnitario { get; set; }
 
-    public decimal? ValorTotal { get; set; } // también puede ser null en BD
+    public decimal? ValorTotal { get; set; }  // en la BD puede ser null
 
-    public virtual Producto Producto { get; set; } = null!;
+    // ✅ Objetos de navegación (no strings)
+    public virtual Producto Producto { get; set; }
 
-    public virtual Venta Venta { get; set; } = null!;
+    public virtual Venta Venta { get; set; }
 }

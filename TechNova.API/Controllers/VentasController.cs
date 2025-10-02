@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TechNova.API.Data;
 using TechNova.API.Models;
@@ -21,18 +16,34 @@ namespace TechNova.API.Controllers
             _context = context;
         }
 
-        // GET: api/Ventas
+        // ✅ GET: api/Ventas (con cliente, productos y servicios + relaciones profundas)
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Venta>>> GetVentas()
         {
-            return await _context.Ventas.ToListAsync();
+            return await _context.Ventas
+                .Include(v => v.FkClienteNavigation)
+                .Include(v => v.Productoxventa)
+                    .ThenInclude(pv => pv.Producto)
+                        .ThenInclude(p => p.Categoria)
+                .Include(v => v.Servicioxventa)
+                    .ThenInclude(sv => sv.FkServicioNavigation)
+                        .ThenInclude(s => s.Categoria)
+                .ToListAsync();
         }
 
-        // GET: api/Ventas/5
+        // ✅ GET: api/Ventas/5 (con todas las relaciones)
         [HttpGet("{id}")]
         public async Task<ActionResult<Venta>> GetVenta(int id)
         {
-            var venta = await _context.Ventas.FindAsync(id);
+            var venta = await _context.Ventas
+                .Include(v => v.FkClienteNavigation)
+                .Include(v => v.Productoxventa)
+                    .ThenInclude(pv => pv.Producto)
+                        .ThenInclude(p => p.Categoria)
+                .Include(v => v.Servicioxventa)
+                    .ThenInclude(sv => sv.FkServicioNavigation)
+                        .ThenInclude(s => s.Categoria)
+                .FirstOrDefaultAsync(v => v.Id == id);
 
             if (venta == null)
             {
@@ -42,8 +53,7 @@ namespace TechNova.API.Controllers
             return venta;
         }
 
-        // PUT: api/Ventas/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+        // ✅ PUT: api/Ventas/5
         [HttpPut("{id}")]
         public async Task<IActionResult> PutVenta(int id, Venta venta)
         {
@@ -73,18 +83,36 @@ namespace TechNova.API.Controllers
             return NoContent();
         }
 
-        // POST: api/Ventas
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+        // ✅ POST: api/Ventas (devuelve la venta completa con productos y servicios)
         [HttpPost]
         public async Task<ActionResult<Venta>> PostVenta(Venta venta)
         {
+            if (venta == null)
+            {
+                return BadRequest("La venta no puede ser nula.");
+            }
+
+            // ⚡ Forzamos la fecha con DateOnly
+            venta.fecha = DateOnly.FromDateTime(DateTime.Now);
+
             _context.Ventas.Add(venta);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetVenta", new { id = venta.Id }, venta);
+            // 🔹 Recargamos con todas las relaciones
+            var ventaConDetalles = await _context.Ventas
+                .Include(v => v.FkClienteNavigation)
+                .Include(v => v.Productoxventa)
+                    .ThenInclude(pv => pv.Producto)
+                        .ThenInclude(p => p.Categoria)
+                .Include(v => v.Servicioxventa)
+                    .ThenInclude(sv => sv.FkServicioNavigation)
+                        .ThenInclude(s => s.Categoria)
+                .FirstOrDefaultAsync(v => v.Id == venta.Id);
+
+            return CreatedAtAction("GetVenta", new { id = venta.Id }, ventaConDetalles);
         }
 
-        // DELETE: api/Ventas/5
+        // ✅ DELETE: api/Ventas/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteVenta(int id)
         {
