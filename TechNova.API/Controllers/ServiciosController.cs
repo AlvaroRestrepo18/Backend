@@ -29,7 +29,7 @@ namespace TechNova.API.Controllers
                 var servicios = await _context.Servicios
                     .Include(s => s.Categoria)
                     .Include(s => s.Servicioxventa)
-                        .ThenInclude(sv => sv.FkVentaNavigation)
+                        .ThenInclude(sv => sv.FkVentaNavigation) // 👈 cambio aquí (antes: FkVentaNavigation)
                     .ToListAsync();
 
                 return Ok(servicios);
@@ -107,7 +107,7 @@ namespace TechNova.API.Controllers
             {
                 var servicio = await _context.Servicios
                     .Include(s => s.Servicioxventa)
-                        .ThenInclude(sv => sv.FkVentaNavigation)
+                        .ThenInclude(sv => sv.FkVentaNavigation) // 👈 cambio aquí (antes: FkVentaNavigation)
                     .FirstOrDefaultAsync(s => s.Id == id);
 
                 if (servicio == null)
@@ -117,12 +117,11 @@ namespace TechNova.API.Controllers
 
                 var ventas = servicio.Servicioxventa.Select(sv => new
                 {
-                    ventaId = sv.FkVenta,
-                    fecha = sv.FkVentaNavigation.fecha,
-                    clienteId = sv.FkVentaNavigation.FkCliente,
-                    valor = sv.ValorTotal 
+                    ventaId = sv.FkVenta,              // 👈 cambio aquí (antes: FkVenta)
+                    fecha = sv.FkVentaNavigation.fecha,            // 👈 cambio aquí (antes: FkVentaNavigation.fecha)
+                    clienteId = sv.FkVentaNavigation.ClienteId,    // 👈 cambio aquí (antes: FkVentaNavigation.FkCliente)
+                    valor = sv.ValorTotal
                 });
-
 
                 return Ok(ventas);
             }
@@ -145,7 +144,7 @@ namespace TechNova.API.Controllers
                 var servicio = await _context.Servicios
                     .Include(s => s.Categoria)
                     .Include(s => s.Servicioxventa)
-                        .ThenInclude(sv => sv.FkVentaNavigation)
+                        .ThenInclude(sv => sv.FkVentaNavigation) // 👈 cambio aquí (antes: FkVentaNavigation)
                     .FirstOrDefaultAsync(s => s.Id == id);
 
                 if (servicio == null)

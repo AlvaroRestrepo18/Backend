@@ -246,15 +246,15 @@ public partial class TechNovaContext : DbContext
                 .HasPrecision(10, 2)
                 .HasColumnName("valor_total");
 
-            entity.HasOne(d => d.Producto).WithMany(p => p.Productoxventa)
+            entity.HasOne(d => d.FkproductoNavigation).WithMany(p => p.Productoxventa)
                 .HasForeignKey(d => d.ProductoId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("productoxventa_producto_id_fkey");
+                .HasConstraintName("productoxventa_producto_fk");
 
-            entity.HasOne(d => d.Venta).WithMany(p => p.Productoxventa)
+            entity.HasOne(d => d.FkVentaNavigation).WithMany(p => p.Productoxventa)
                 .HasForeignKey(d => d.VentaId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("productoxventa_venta_id_fkey");
+                .HasConstraintName("productoxventa_venta_fk");
         });
 
 
@@ -417,29 +417,32 @@ public partial class TechNovaContext : DbContext
 
             entity.ToTable("ventas");
 
-            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
 
             entity.Property(e => e.fecha)
-            .HasColumnType("date")
-            .HasDefaultValueSql("now()");
+                .HasColumnType("date")
+                .HasDefaultValueSql("now()");
 
-
-            entity.Property(e => e.FkCliente).HasColumnName("fk_cliente");
+            entity.Property(e => e.ClienteId)
+                .HasColumnName("fk_cliente"); // 👈 mapea correctamente con la columna existente en la BD
 
             entity.Property(e => e.Total)
                 .HasPrecision(12, 2)
                 .HasColumnName("total");
 
-            // 👇 Nuevo mapeo del campo Estado
             entity.Property(e => e.Estado)
                 .HasColumnName("estado")
-                .HasDefaultValueSql("true"); // opcional si lo pusiste en la tabla
+                .HasDefaultValueSql("true");
 
-            entity.HasOne(d => d.FkClienteNavigation).WithMany(p => p.Venta)
-                .HasForeignKey(d => d.FkCliente)
+            // 🔗 Relación corregida
+            entity.HasOne(d => d.Cliente)
+                .WithMany(p => p.Venta)
+                .HasForeignKey(d => d.ClienteId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("ventas_cliente_fk");
         });
+
 
 
         modelBuilder.HasSequence("categorias_id_seq");

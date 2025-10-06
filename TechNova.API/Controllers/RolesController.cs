@@ -59,23 +59,45 @@ namespace TechNova.API.Controllers
         [HttpGet("{id}/Permisos")]
         public async Task<ActionResult<IEnumerable<object>>> GetPermisosPorRol(int id)
         {
-            var rolExiste = await _context.Roles.AnyAsync(r => r.IdRol == id);
-            if (!rolExiste)
+            var rol = await _context.Roles
+                .Include(r => r.Permisoxrols)
+                .ThenInclude(px => px.FkPermisoNavigation)
+                .FirstOrDefaultAsync(r => r.IdRol == id);
+
+            if (rol == null)
                 return NotFound($"No existe un rol con id {id}.");
 
-            var permisos = await _context.Permisoxrols
-                .Where(pr => pr.FkRol == id)
-                .Include(pr => pr.FkPermisoNavigation)
-                .Select(pr => new {
-                    pr.FkPermisoNavigation.IdPermiso,
-                    pr.FkPermisoNavigation.Nombre
-                })
-                .ToListAsync();
+            var permisos = rol.Permisoxrols.Select(pr => new {
+                pr.FkPermisoNavigation.IdPermiso,
+                pr.FkPermisoNavigation.Nombre
+            }).ToList();
 
-            if (!permisos.Any())
-                return NotFound($"El rol con id {id} no tiene permisos asignados.");
-
+            // Devuelve array vacío si no hay permisos
             return Ok(permisos);
+        }
+
+        // ✅ POST: api/Roles/{id}/AsignarPermisos
+        [HttpPost("{id}/AsignarPermisos")]
+        public async Task<IActionResult> AsignarPermisos(int id, [FromBody] List<int> permisosIds)
+        {
+            var rol = await _context.Roles
+                .Include(r => r.Permisoxrols)
+                .FirstOrDefaultAsync(r => r.IdRol == id);
+
+            if (rol == null)
+                return NotFound($"No existe un rol con id {id}.");
+
+            // Limpiar permisos actuales
+            _context.Permisoxrols.RemoveRange(rol.Permisoxrols);
+
+            // Agregar nuevos permisos
+            foreach (var permisoId in permisosIds)
+            {
+                rol.Permisoxrols.Add(new Permisoxrol { FkRol = id, FkPermiso = permisoId });
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok($"Permisos actualizados para el rol {id}.");
         }
 
         // ✅ PUT: api/Roles/5

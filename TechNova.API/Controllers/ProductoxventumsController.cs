@@ -10,10 +10,12 @@ namespace TechNova.API.Controllers
     public class ProductoxventumsController : ControllerBase
     {
         private readonly TechNovaContext _context;
+        private readonly ILogger<ProductoxventumsController> _logger;
 
-        public ProductoxventumsController(TechNovaContext context)
+        public ProductoxventumsController(TechNovaContext context, ILogger<ProductoxventumsController> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         // ✅ GET: api/Productoxventums
@@ -21,8 +23,8 @@ namespace TechNova.API.Controllers
         public async Task<ActionResult<IEnumerable<Productoxventum>>> GetAll()
         {
             return await _context.Productoxventa
-                .Include(p => p.Producto)
-                .Include(v => v.Venta)
+                .Include(p => p.FkproductoNavigation)
+                .Include(v => v.FkVentaNavigation)
                 .ToListAsync();
         }
 
@@ -31,8 +33,8 @@ namespace TechNova.API.Controllers
         public async Task<ActionResult<Productoxventum>> GetById(int id)
         {
             var productoVenta = await _context.Productoxventa
-                .Include(p => p.Producto)
-                .Include(v => v.Venta)
+                .Include(p => p.FkproductoNavigation)
+                .Include(v => v.FkVentaNavigation)
                 .FirstOrDefaultAsync(x => x.Id == id);
 
             if (productoVenta == null)
@@ -46,7 +48,7 @@ namespace TechNova.API.Controllers
         public async Task<ActionResult<IEnumerable<Productoxventum>>> GetByVentaId(int ventaId)
         {
             var productos = await _context.Productoxventa
-                .Include(p => p.Producto)
+                .Include(p => p.FkproductoNavigation)
                 .Where(x => x.VentaId == ventaId)
                 .ToListAsync();
 
@@ -58,7 +60,7 @@ namespace TechNova.API.Controllers
         public async Task<ActionResult<IEnumerable<Productoxventum>>> GetByProductoId(int productoId)
         {
             var ventas = await _context.Productoxventa
-                .Include(v => v.Venta)
+                .Include(v => v.FkVentaNavigation)
                 .Where(x => x.ProductoId == productoId)
                 .ToListAsync();
 
@@ -69,35 +71,76 @@ namespace TechNova.API.Controllers
         [HttpPost]
         public async Task<ActionResult<Productoxventum>> Create(Productoxventum productoVenta)
         {
-            // Recalcular valor total si no viene
-            if (!productoVenta.ValorTotal.HasValue && productoVenta.Cantidad.HasValue)
+            try
             {
-                productoVenta.ValorTotal = productoVenta.ValorUnitario * productoVenta.Cantidad.Value;
+                _logger.LogInformation($"🎯 PRODUCTOXVENTA - Creando relación para producto {productoVenta.ProductoId} en venta {productoVenta.VentaId}");
+
+                // 1. ACTUALIZAR STOCK DEL PRODUCTO
+                var producto = await _context.Productos.FindAsync(productoVenta.ProductoId);
+                if (producto == null)
+                {
+                    _logger.LogError($"❌ PRODUCTOXVENTA - Producto no encontrado: {productoVenta.ProductoId}");
+                    return BadRequest($"Producto con ID {productoVenta.ProductoId} no existe");
+                }
+
+                if (!producto.Cantidad.HasValue || !productoVenta.Cantidad.HasValue)
+                {
+                    _logger.LogError($"❌ PRODUCTOXVENTA - Cantidades inválidas: Producto={producto.Cantidad}, Venta={productoVenta.Cantidad}");
+                    return BadRequest("Cantidades inválidas");
+                }
+
+                if (producto.Cantidad.Value < productoVenta.Cantidad.Value)
+                {
+                    _logger.LogError($"❌ PRODUCTOXVENTA - Stock insuficiente: {producto.Nombre} (Stock: {producto.Cantidad}, Solicitado: {productoVenta.Cantidad})");
+                    return BadRequest($"Stock insuficiente: {producto.Nombre} (Stock: {producto.Cantidad}, Solicitado: {productoVenta.Cantidad})");
+                }
+
+                // 🔥 ACTUALIZAR STOCK
+                int cantidadAnterior = producto.Cantidad.Value;
+                producto.Cantidad = cantidadAnterior - productoVenta.Cantidad.Value;
+                _logger.LogInformation($"✅ PRODUCTOXVENTA - Stock actualizado: {producto.Nombre} {cantidadAnterior} -> {producto.Cantidad}");
+
+                // 2. CREAR LA RELACIÓN PRODUCTO-VENTA
+                if (!productoVenta.ValorTotal.HasValue && productoVenta.Cantidad.HasValue)
+                {
+                    productoVenta.ValorTotal = productoVenta.ValorUnitario * productoVenta.Cantidad.Value;
+                }
+
+                _context.Productoxventa.Add(productoVenta);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"🎉 PRODUCTOXVENTA CREADA - ID: {productoVenta.Id}");
+                return CreatedAtAction(nameof(GetById), new { id = productoVenta.Id }, productoVenta);
             }
-
-            _context.Productoxventa.Add(productoVenta);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetById), new { id = productoVenta.Id }, productoVenta);
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ ERROR en Productoxventa: {ex.Message}");
+                _logger.LogError($"❌ StackTrace: {ex.StackTrace}");
+                return StatusCode(500, $"Error interno: {ex.Message}");
+            }
         }
 
         // ✅ PUT: api/Productoxventums/5
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, Productoxventum productoVenta)
         {
-            if (id != productoVenta.Id)
-                return BadRequest();
-
-            if (!productoVenta.ValorTotal.HasValue && productoVenta.Cantidad.HasValue)
-            {
-                productoVenta.ValorTotal = productoVenta.ValorUnitario * productoVenta.Cantidad.Value;
-            }
-
-            _context.Entry(productoVenta).State = EntityState.Modified;
-
             try
             {
+                if (id != productoVenta.Id)
+                    return BadRequest();
+
+                _logger.LogInformation($"🎯 PRODUCTOXVENTA - Actualizando relación {id}");
+
+                if (!productoVenta.ValorTotal.HasValue && productoVenta.Cantidad.HasValue)
+                {
+                    productoVenta.ValorTotal = productoVenta.ValorUnitario * productoVenta.Cantidad.Value;
+                }
+
+                _context.Entry(productoVenta).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"✅ PRODUCTOXVENTA ACTUALIZADA - ID: {id}");
+                return NoContent();
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -106,22 +149,51 @@ namespace TechNova.API.Controllers
                 else
                     throw;
             }
-
-            return NoContent();
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ ERROR actualizando Productoxventa: {ex.Message}");
+                return StatusCode(500, $"Error interno: {ex.Message}");
+            }
         }
 
         // ✅ DELETE: api/Productoxventums/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var productoVenta = await _context.Productoxventa.FindAsync(id);
-            if (productoVenta == null)
-                return NotFound();
+            try
+            {
+                _logger.LogInformation($"🎯 PRODUCTOXVENTA - Eliminando relación {id}");
 
-            _context.Productoxventa.Remove(productoVenta);
-            await _context.SaveChangesAsync();
+                var productoVenta = await _context.Productoxventa.FindAsync(id);
+                if (productoVenta == null)
+                {
+                    _logger.LogWarning($"❌ PRODUCTOXVENTA - No encontrada: {id}");
+                    return NotFound();
+                }
 
-            return NoContent();
+                // 🔥 RESTAURAR STOCK AL ELIMINAR
+                if (productoVenta.Cantidad.HasValue)
+                {
+                    var producto = await _context.Productos.FindAsync(productoVenta.ProductoId);
+                    if (producto != null)
+                    {
+                        int cantidadActual = producto.Cantidad ?? 0;
+                        producto.Cantidad = cantidadActual + productoVenta.Cantidad.Value;
+                        _logger.LogInformation($"🔄 PRODUCTOXVENTA - Stock restaurado: {producto.Nombre} {cantidadActual} -> {producto.Cantidad}");
+                    }
+                }
+
+                _context.Productoxventa.Remove(productoVenta);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"✅ PRODUCTOXVENTA ELIMINADA - ID: {id}");
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ ERROR eliminando Productoxventa: {ex.Message}");
+                return StatusCode(500, $"Error interno: {ex.Message}");
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace TechNova.API.Models
 {
@@ -13,12 +14,14 @@ namespace TechNova.API.Models
 
         public decimal Precio { get; set; }
 
-        public string? Detalles { get; set; }  // opcional (nullable)
+        public string? Detalles { get; set; }
 
-        public decimal? ValorTotal { get; set; }  // opcional (nullable)
+        public decimal? ValorTotal { get; set; }
 
-        public virtual Servicio FkServicioNavigation { get; set; } = null!;
-
-        public virtual Venta FkVentaNavigation { get; set; } = null!;
+        // ✅ AGREGAR JsonIgnore PARA EVITAR VALIDACIÓN
+        [JsonIgnore]
+        public virtual Servicio? FkServicioNavigation { get; set; }
+        [JsonIgnore]
+        public virtual Venta? FkVentaNavigation { get; set; }
     }
 }

@@ -184,8 +184,109 @@ namespace TechNova.API.Controllers
             }
         }
 
+        // 🔥 NUEVO ENDPOINT: Actualizar cantidad del producto
+        [HttpPatch("{id}/actualizar-cantidad")]
+        public async Task<IActionResult> ActualizarCantidad(int id, [FromBody] ActualizarCantidadRequest request)
+        {
+            try
+            {
+                var producto = await _context.Productos.FindAsync(id);
+                if (producto == null)
+                {
+                    return NotFound(new { mensaje = $"No se encontró un producto con ID {id}" });
+                }
+
+                // Validar que la nueva cantidad no sea negativa
+                if (request.NuevaCantidad < 0)
+                {
+                    return BadRequest(new { mensaje = "La cantidad no puede ser negativa" });
+                }
+
+                // Actualizar la cantidad
+                producto.Cantidad = request.NuevaCantidad;
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    mensaje = "Cantidad actualizada correctamente",
+                    productoId = producto.Id,
+                    nombre = producto.Nombre,
+                    cantidadAnterior = request.CantidadAnterior,
+                    cantidadNueva = producto.Cantidad
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    mensaje = "Error al actualizar la cantidad del producto",
+                    detalle = ex.Message
+                });
+            }
+        }
+
+        // 🔥 NUEVO ENDPOINT: Reducir cantidad (para ventas)
+        [HttpPatch("{id}/reducir-cantidad")]
+        public async Task<IActionResult> ReducirCantidad(int id, [FromBody] int cantidadAReducir)
+        {
+            try
+            {
+                var producto = await _context.Productos.FindAsync(id);
+                if (producto == null)
+                {
+                    return NotFound(new { mensaje = $"No se encontró un producto con ID {id}" });
+                }
+
+                if (!producto.Cantidad.HasValue)
+                {
+                    return BadRequest(new { mensaje = "El producto no tiene cantidad definida" });
+                }
+
+                // Validar que haya suficiente cantidad
+                if (producto.Cantidad.Value < cantidadAReducir)
+                {
+                    return BadRequest(new
+                    {
+                        mensaje = "Cantidad insuficiente",
+                        cantidadActual = producto.Cantidad,
+                        cantidadSolicitada = cantidadAReducir
+                    });
+                }
+
+                // Reducir la cantidad
+                int cantidadAnterior = producto.Cantidad.Value;
+                producto.Cantidad = cantidadAnterior - cantidadAReducir;
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    mensaje = "Cantidad reducida correctamente",
+                    productoId = producto.Id,
+                    nombre = producto.Nombre,
+                    cantidadAnterior = cantidadAnterior,
+                    cantidadReducida = cantidadAReducir,
+                    cantidadNueva = producto.Cantidad
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    mensaje = "Error al reducir la cantidad del producto",
+                    detalle = ex.Message
+                });
+            }
+        }
+
         // 🔍 Helper
         private bool ProductoExists(int id) =>
             _context.Productos.Any(e => e.Id == id);
+    }
+
+    // 🔥 Modelo para el request de actualizar cantidad
+    public class ActualizarCantidadRequest
+    {
+        public int NuevaCantidad { get; set; }
+        public int? CantidadAnterior { get; set; }
     }
 }

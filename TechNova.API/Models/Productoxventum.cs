@@ -1,24 +1,27 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
-namespace TechNova.API.Models;
-
-public partial class Productoxventum
+namespace TechNova.API.Models
 {
-    public int Id { get; set; }
+    public partial class Productoxventum
+    {
+        public int Id { get; set; }
 
-    public int ProductoId { get; set; }
+        public int ProductoId { get; set; }
 
-    public int VentaId { get; set; }
+        public int VentaId { get; set; }
 
-    public int? Cantidad { get; set; }  // en la BD puede ser null
+        public int? Cantidad { get; set; }
 
-    public decimal ValorUnitario { get; set; }
+        public decimal ValorUnitario { get; set; }
 
-    public decimal? ValorTotal { get; set; }  // en la BD puede ser null
+        public decimal? ValorTotal { get; set; }
 
-    // ✅ Objetos de navegación (no strings)
-    public virtual Producto Producto { get; set; }
+        [JsonIgnore] // 👈 AGREGA ESTO
+        public virtual Producto? FkproductoNavigation { get; set; }
 
-    public virtual Venta Venta { get; set; }
+        [JsonIgnore] // 👈 AGREGA ESTO
+        public virtual Venta? FkVentaNavigation { get; set; }
+    }
 }
