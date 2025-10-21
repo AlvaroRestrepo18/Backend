@@ -94,16 +94,16 @@ public class AuthController : ControllerBase
                 return Ok(new { success = true, message = "Si el email existe, se enviarán instrucciones" });
             }
 
-            // Generar código de recuperación de 6 dígitos seguro
+            // Generar código de recuperación de 6 dígitos
             var random = new Random();
             var codigo = random.Next(100000, 999999).ToString();
-            usuario.CodigoRecuperacion = codigo.Substring(0, Math.Min(6, codigo.Length)); // asegura máximo 6 caracteres
-            usuario.CodigoExpira = DateTime.UtcNow.AddHours(24); // usar UTC
+            usuario.CodigoRecuperacion = codigo;
+            usuario.CodigoExpira = DateTime.UtcNow.AddHours(24);
 
             await _context.SaveChangesAsync();
 
-            // Enviar correo real
-            await EnviarEmailRecuperacion(usuario.Email, usuario.CodigoRecuperacion);
+            // Enviar correo con código y link
+            await EnviarEmailRecuperacion(usuario.Email, codigo);
 
             return Ok(new { success = true, message = "Si el email existe, se enviarán instrucciones" });
         }
@@ -179,7 +179,7 @@ public class AuthController : ControllerBase
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    // 📧 MÉTODO PARA ENVIAR EMAIL REAL
+    // 📧 MÉTODO PARA ENVIAR EMAIL REAL (HTML + LINK)
     private async Task EnviarEmailRecuperacion(string emailDestino, string codigo)
     {
         try
@@ -195,24 +195,33 @@ public class AuthController : ControllerBase
                 EnableSsl = true
             };
 
+            string link = $"http://localhost:5173/reset?code={codigo}"; // 👈 cambia esto por tu dominio o localhost
+
             var mail = new MailMessage
             {
                 From = new MailAddress(smtpUser, "TechNova"),
                 Subject = "Recuperación de contraseña",
-                Body = $"Tu código de recuperación es: {codigo}\nEste código expira en 24 horas.",
-                IsBodyHtml = false
+                Body = $@"
+                    <h2>Recuperación de contraseña</h2>
+                    <p>Tu código de recuperación es: <b>{codigo}</b></p>
+                    <p>Puedes ingresar el código o usar directamente este enlace:</p>
+                    <p><a href='{link}' target='_blank'>{link}</a></p>
+                    <p>Este código expira en <b>24 horas</b>.</p>
+                    <hr/>
+                    <small>Si no solicitaste este correo, puedes ignorarlo.</small>
+                ",
+                IsBodyHtml = true
             };
 
             mail.To.Add(emailDestino);
 
             await client.SendMailAsync(mail);
 
-            _logger.LogInformation($"✅ Email real enviado a {emailDestino}");
+            _logger.LogInformation($"✅ Email enviado correctamente a {emailDestino}");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, $"❌ Error enviando email a {emailDestino}");
-            // No tiramos error al usuario, solo log
         }
     }
 }

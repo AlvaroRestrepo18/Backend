@@ -95,7 +95,7 @@ namespace TechNova.API.Controllers
             return NoContent();
         }
 
-        // ✅ POST: api/Ventas (VERSIÓN CORREGIDA - SIN ACTUALIZAR STOCK)
+        // ✅ POST: api/Ventas
         [HttpPost]
         public async Task<ActionResult<Venta>> PostVenta(Venta venta)
         {
@@ -106,27 +106,22 @@ namespace TechNova.API.Controllers
                 if (venta == null)
                     return BadRequest("La venta no puede ser nula.");
 
-                // ⚡ Validar que el cliente exista
+                // ⚡ Validar cliente
                 var clienteExistente = await _context.Clientes.FindAsync(venta.ClienteId);
                 if (clienteExistente == null)
                     return BadRequest($"El cliente con ID {venta.ClienteId} no existe.");
 
-                // ⚡ Forzar fecha actual si no viene del frontend
+                // ⚡ Fecha actual si no viene del frontend
                 if (venta.fecha == default)
                     venta.fecha = DateTime.Now;
 
-                // 🔹 Prevenir referencias erróneas
                 venta.Cliente = null;
 
-                // 🔥 DEBUG: Log de productos en la venta
-                _logger.LogInformation($"🛒 Venta recibida - Productos: {venta.Productoxventa?.Count ?? 0}, Servicios: {venta.Servicioxventa?.Count ?? 0}");
-
-                // 1️⃣ GUARDAR LA VENTA PRINCIPAL
                 _context.Ventas.Add(venta);
                 await _context.SaveChangesAsync();
                 _logger.LogInformation($"✅ Venta creada - ID: {venta.Id}");
 
-                // 2️⃣ GUARDAR PRODUCTOS ASOCIADOS A LA VENTA
+                // 🔹 Guardar productos
                 if (venta.Productoxventa != null && venta.Productoxventa.Any())
                 {
                     foreach (var pv in venta.Productoxventa)
@@ -135,14 +130,10 @@ namespace TechNova.API.Controllers
                         pv.VentaId = venta.Id;
                         pv.FkproductoNavigation = null;
                         _context.Productoxventa.Add(pv);
-                        _logger.LogInformation($"✅ Producto vinculado a venta - ProductoID: {pv.ProductoId}, Cantidad: {pv.Cantidad}");
-
-                        // 🔥 NOTA: La actualización de stock ahora la hace ProductoxventumsController automáticamente
-                        // cuando se crea esta relación Productoxventa
                     }
                 }
 
-                // 3️⃣ GUARDAR SERVICIOS ASOCIADOS
+                // 🔹 Guardar servicios
                 if (venta.Servicioxventa != null && venta.Servicioxventa.Any())
                 {
                     foreach (var sv in venta.Servicioxventa)
@@ -155,15 +146,11 @@ namespace TechNova.API.Controllers
                         sv.FkVenta = venta.Id;
                         sv.FkServicioNavigation = null;
                         _context.Servicioxventa.Add(sv);
-                        _logger.LogInformation($"✅ Servicio vinculado a venta - ServicioID: {sv.FkServicio}");
                     }
                 }
 
-                // 4️⃣ GUARDAR TODOS LOS CAMBIOS FINALES
                 await _context.SaveChangesAsync();
-                _logger.LogInformation("✅ Todos los cambios guardados (venta + productos + servicios)");
 
-                // 5️⃣ RECARGAR LA VENTA CON RELACIONES PARA RETORNAR
                 var ventaConDetalles = await _context.Ventas
                     .Include(v => v.Cliente)
                     .Include(v => v.Productoxventa)
@@ -174,14 +161,11 @@ namespace TechNova.API.Controllers
                             .ThenInclude(s => s.Categoria)
                     .FirstOrDefaultAsync(v => v.Id == venta.Id);
 
-                _logger.LogInformation("🎉 VENTA COMPLETADA EXITOSAMENTE");
-
                 return CreatedAtAction(nameof(GetVenta), new { id = venta.Id }, ventaConDetalles);
             }
             catch (Exception ex)
             {
                 _logger.LogError($"❌ ERROR en PostVenta: {ex.Message}");
-                _logger.LogError($"❌ StackTrace: {ex.StackTrace}");
                 return StatusCode(500, $"Error interno del servidor: {ex.Message}");
             }
         }
@@ -200,11 +184,6 @@ namespace TechNova.API.Controllers
                 if (venta == null)
                     return NotFound();
 
-                _logger.LogInformation($"🗑️ Eliminando venta - ID: {id}");
-
-                // 🔥 NOTA: La restauración de stock ahora la hace ProductoxventumsController automáticamente
-                // cuando se eliminan las relaciones Productoxventa
-
                 if (venta.Productoxventa != null && venta.Productoxventa.Any())
                     _context.Productoxventa.RemoveRange(venta.Productoxventa);
 
@@ -214,7 +193,6 @@ namespace TechNova.API.Controllers
                 _context.Ventas.Remove(venta);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"✅ Venta eliminada - ID: {id}");
                 return NoContent();
             }
             catch (Exception ex)
@@ -224,9 +202,36 @@ namespace TechNova.API.Controllers
             }
         }
 
+        // ✅ NUEVO: Cambiar estado de la venta (versión estable)
+        [HttpPut("{id}/estado")]
+        public async Task<IActionResult> CambiarEstado(int id, [FromBody] CambioEstadoRequest request)
+        {
+            if (request == null)
+                return BadRequest("El cuerpo de la solicitud es nulo.");
+
+            var venta = await _context.Ventas.FindAsync(id);
+            if (venta == null)
+                return NotFound($"No se encontró la venta con ID {id}");
+
+            venta.Estado = request.Estado;
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Estado actualizado correctamente",
+                nuevoEstado = venta.Estado
+            });
+        }
+
         private bool VentaExists(int id)
         {
             return _context.Ventas.Any(e => e.Id == id);
         }
+    }
+
+    // ✅ Clase auxiliar para el cambio de estado
+    public class CambioEstadoRequest
+    {
+        public bool Estado { get; set; }
     }
 }
