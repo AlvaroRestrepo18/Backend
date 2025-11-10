@@ -49,14 +49,24 @@ namespace TechNova.API.Controllers
 
         // PUT: api/Usuarios/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutUsuario(int id, Usuario usuario)
+        public async Task<IActionResult> PutUsuario(int id, Usuario inputUsuario)
         {
-            if (id != usuario.IdUsuario)
-            {
-                return BadRequest();
-            }
+            var usuario = await _context.Usuarios.FindAsync(id);
+            if (usuario == null)
+                return NotFound();
 
-            _context.Entry(usuario).State = EntityState.Modified;
+            // 🔹 Actualizamos solo los campos permitidos
+            usuario.Nombre = inputUsuario.Nombre;
+            usuario.Email = inputUsuario.Email;
+            usuario.Celular = inputUsuario.Celular;
+            usuario.Direccion = inputUsuario.Direccion;
+            usuario.FkRol = inputUsuario.FkRol;
+            usuario.TipoDoc = inputUsuario.TipoDoc;
+            usuario.Documento = inputUsuario.Documento;
+            usuario.Contrasena = string.IsNullOrEmpty(inputUsuario.Contrasena)
+                ? usuario.Contrasena
+                : inputUsuario.Contrasena;
+            usuario.Estado = inputUsuario.Estado;
 
             try
             {
@@ -84,7 +94,15 @@ namespace TechNova.API.Controllers
             _context.Usuarios.Add(usuario);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetUsuario", new { id = usuario.IdUsuario }, usuario);
+            return Ok(new
+            {
+                mensaje = "Usuario creado exitosamente",
+                usuario.IdUsuario,
+                usuario.Nombre,
+                usuario.Email,
+                usuario.FkRol,
+                usuario.Estado
+            });
         }
 
         // DELETE: api/Usuarios/5
@@ -103,7 +121,7 @@ namespace TechNova.API.Controllers
             return NoContent();
         }
 
-        // ✅ PATCH: api/Usuarios/{id}/estado
+        // PATCH: api/Usuarios/{id}/estado
         [HttpPatch("{id}/estado")]
         public async Task<IActionResult> PatchUsuarioEstado(int id, [FromBody] EstadoRequest request)
         {
@@ -114,7 +132,6 @@ namespace TechNova.API.Controllers
             }
 
             usuario.Estado = request.Estado;
-
             _context.Entry(usuario).Property(u => u.Estado).IsModified = true;
             await _context.SaveChangesAsync();
 
