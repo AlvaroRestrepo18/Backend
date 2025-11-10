@@ -18,7 +18,7 @@ namespace TechNova.API.Controllers
             _context = context;
         }
 
-        // GET: api/Usuarios
+        // ✅ 1️⃣ Obtener todos los usuarios
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Usuario>>> GetUsuarios()
         {
@@ -29,7 +29,7 @@ namespace TechNova.API.Controllers
                 .ToListAsync();
         }
 
-        // GET: api/Usuarios/5
+        // ✅ 2️⃣ Obtener un usuario por ID
         [HttpGet("{id}")]
         public async Task<ActionResult<Usuario>> GetUsuario(int id)
         {
@@ -40,14 +40,20 @@ namespace TechNova.API.Controllers
                 .FirstOrDefaultAsync(u => u.IdUsuario == id);
 
             if (usuario == null)
-            {
                 return NotFound();
-            }
 
             return usuario;
         }
 
-        // PUT: api/Usuarios/5
+        // ✅ 3️⃣ Verificar si un correo ya existe (para el frontend)
+        [HttpGet("ExisteCorreo")]
+        public async Task<ActionResult<bool>> ExisteCorreo([FromQuery] string correo)
+        {
+            bool existe = await _context.Usuarios.AnyAsync(u => u.Email == correo);
+            return Ok(existe);
+        }
+
+        // ✅ 4️⃣ Actualizar un usuario
         [HttpPut("{id}")]
         public async Task<IActionResult> PutUsuario(int id, Usuario inputUsuario)
         {
@@ -55,7 +61,15 @@ namespace TechNova.API.Controllers
             if (usuario == null)
                 return NotFound();
 
-            // 🔹 Actualizamos solo los campos permitidos
+            // 🔹 Validar correo duplicado (si lo cambia)
+            if (usuario.Email != inputUsuario.Email)
+            {
+                bool correoEnUso = await _context.Usuarios.AnyAsync(u => u.Email == inputUsuario.Email && u.IdUsuario != id);
+                if (correoEnUso)
+                    return BadRequest("⚠️ El correo ya está registrado por otro usuario.");
+            }
+
+            // 🔹 Actualizar campos
             usuario.Nombre = inputUsuario.Nombre;
             usuario.Email = inputUsuario.Email;
             usuario.Celular = inputUsuario.Celular;
@@ -75,28 +89,29 @@ namespace TechNova.API.Controllers
             catch (DbUpdateConcurrencyException)
             {
                 if (!UsuarioExists(id))
-                {
                     return NotFound();
-                }
                 else
-                {
                     throw;
-                }
             }
 
             return NoContent();
         }
 
-        // POST: api/Usuarios
+        // ✅ 5️⃣ Crear un nuevo usuario
         [HttpPost]
         public async Task<ActionResult<Usuario>> PostUsuario(Usuario usuario)
         {
+            // 🔹 Validar que el correo no esté repetido
+            bool existeCorreo = await _context.Usuarios.AnyAsync(u => u.Email == usuario.Email);
+            if (existeCorreo)
+                return BadRequest("⚠️ El correo ya está registrado. Usa otro diferente.");
+
             _context.Usuarios.Add(usuario);
             await _context.SaveChangesAsync();
 
             return Ok(new
             {
-                mensaje = "Usuario creado exitosamente",
+                mensaje = "✅ Usuario creado exitosamente",
                 usuario.IdUsuario,
                 usuario.Nombre,
                 usuario.Email,
@@ -105,15 +120,13 @@ namespace TechNova.API.Controllers
             });
         }
 
-        // DELETE: api/Usuarios/5
+        // ✅ 6️⃣ Eliminar un usuario
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUsuario(int id)
         {
             var usuario = await _context.Usuarios.FindAsync(id);
             if (usuario == null)
-            {
                 return NotFound();
-            }
 
             _context.Usuarios.Remove(usuario);
             await _context.SaveChangesAsync();
@@ -121,15 +134,13 @@ namespace TechNova.API.Controllers
             return NoContent();
         }
 
-        // PATCH: api/Usuarios/{id}/estado
+        // ✅ 7️⃣ Cambiar estado de usuario (activo/inactivo)
         [HttpPatch("{id}/estado")]
         public async Task<IActionResult> PatchUsuarioEstado(int id, [FromBody] EstadoRequest request)
         {
             var usuario = await _context.Usuarios.FindAsync(id);
             if (usuario == null)
-            {
                 return NotFound();
-            }
 
             usuario.Estado = request.Estado;
             _context.Entry(usuario).Property(u => u.Estado).IsModified = true;
@@ -138,13 +149,14 @@ namespace TechNova.API.Controllers
             return Ok(usuario);
         }
 
+        // ✅ 8️⃣ Método auxiliar
         private bool UsuarioExists(int id)
         {
             return _context.Usuarios.Any(e => e.IdUsuario == id);
         }
     }
 
-    // DTO mínimo para PATCH
+    // ✅ DTO mínimo para PATCH
     public class EstadoRequest
     {
         public bool Estado { get; set; }
