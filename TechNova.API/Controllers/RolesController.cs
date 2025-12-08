@@ -19,9 +19,9 @@ namespace TechNova.API.Controllers
             _context = context;
         }
 
-        // ✅ GET: api/Roles
+        // ✅ GET: api/Roles - Roles con permisos y usuarios proyectados para frontend
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Role>>> GetRoles()
+        public async Task<ActionResult<IEnumerable<object>>> GetRolesParaFront()
         {
             try
             {
@@ -29,25 +29,72 @@ namespace TechNova.API.Controllers
                     .Include(r => r.Usuarios)
                     .Include(r => r.Permisoxrols)
                         .ThenInclude(px => px.FkPermisoNavigation)
+                    .Select(r => new
+                    {
+                        r.IdRol,
+                        r.NombreRol,
+                        r.Descripcion,
+                        r.Activo,
+                        Permisos = r.Permisoxrols.Select(px => new
+                        {
+                            px.FkPermisoNavigation.IdPermiso,
+                            px.FkPermisoNavigation.Nombre
+                        }),
+                        Usuarios = r.Usuarios.Select(u => new
+                        {
+                            u.IdUsuario,
+                            u.Nombre,
+                            u.Email,
+                            u.Estado,
+                            u.TipoDoc,
+                            u.Documento,
+                            u.Celular,
+                            u.Direccion
+                        })
+                    })
                     .ToListAsync();
 
                 return Ok(roles);
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
-                return StatusCode(500, $"Error interno en GetRoles: {ex.Message}");
+                return StatusCode(500, $"Error interno en GetRolesParaFront: {ex.Message}");
             }
         }
 
-        // ✅ GET: api/Roles/5
+        // ✅ GET: api/Roles/5 - Detalle de un rol con permisos y usuarios
         [HttpGet("{id}")]
-        public async Task<ActionResult<Role>> GetRol(int id)
+        public async Task<ActionResult<object>> GetRol(int id)
         {
             var rol = await _context.Roles
                 .Include(r => r.Usuarios)
                 .Include(r => r.Permisoxrols)
                     .ThenInclude(px => px.FkPermisoNavigation)
-                .FirstOrDefaultAsync(r => r.IdRol == id);
+                .Where(r => r.IdRol == id)
+                .Select(r => new
+                {
+                    r.IdRol,
+                    r.NombreRol,
+                    r.Descripcion,
+                    r.Activo,
+                    Permisos = r.Permisoxrols.Select(px => new
+                    {
+                        px.FkPermisoNavigation.IdPermiso,
+                        px.FkPermisoNavigation.Nombre
+                    }),
+                    Usuarios = r.Usuarios.Select(u => new
+                    {
+                        u.IdUsuario,
+                        u.Nombre,
+                        u.Email,
+                        u.Estado,
+                        u.TipoDoc,
+                        u.Documento,
+                        u.Celular,
+                        u.Direccion
+                    })
+                })
+                .FirstOrDefaultAsync();
 
             if (rol == null)
                 return NotFound($"No se encontró el rol con id {id}.");
@@ -55,52 +102,44 @@ namespace TechNova.API.Controllers
             return Ok(rol);
         }
 
-        // ✅ GET: api/Roles/{id}/Permisos
+        // ✅ GET: api/Roles/5/Permisos - Obtener solo los permisos de un rol
         [HttpGet("{id}/Permisos")]
         public async Task<ActionResult<IEnumerable<object>>> GetPermisosPorRol(int id)
         {
             var rol = await _context.Roles
                 .Include(r => r.Permisoxrols)
-                .ThenInclude(px => px.FkPermisoNavigation)
+                    .ThenInclude(px => px.FkPermisoNavigation)
                 .FirstOrDefaultAsync(r => r.IdRol == id);
 
             if (rol == null)
-                return NotFound($"No existe un rol con id {id}.");
+                return NotFound($"No se encontró el rol con id {id}.");
 
-            var permisos = rol.Permisoxrols.Select(pr => new {
-                pr.FkPermisoNavigation.IdPermiso,
-                pr.FkPermisoNavigation.Nombre
-            }).ToList();
+            var permisos = rol.Permisoxrols.Select(px => new
+            {
+                px.FkPermisoNavigation.IdPermiso,
+                px.FkPermisoNavigation.Nombre
+            });
 
-            // Devuelve array vacío si no hay permisos
             return Ok(permisos);
         }
 
-        // ✅ POST: api/Roles/{id}/AsignarPermisos
-        [HttpPost("{id}/AsignarPermisos")]
-        public async Task<IActionResult> AsignarPermisos(int id, [FromBody] List<int> permisosIds)
+        // ✅ POST: api/Roles - Crear un nuevo rol
+        [HttpPost]
+        public async Task<ActionResult<Role>> PostRol(Role rol)
         {
-            var rol = await _context.Roles
-                .Include(r => r.Permisoxrols)
-                .FirstOrDefaultAsync(r => r.IdRol == id);
-
-            if (rol == null)
-                return NotFound($"No existe un rol con id {id}.");
-
-            // Limpiar permisos actuales
-            _context.Permisoxrols.RemoveRange(rol.Permisoxrols);
-
-            // Agregar nuevos permisos
-            foreach (var permisoId in permisosIds)
+            try
             {
-                rol.Permisoxrols.Add(new Permisoxrol { FkRol = id, FkPermiso = permisoId });
+                _context.Roles.Add(rol);
+                await _context.SaveChangesAsync();
+                return CreatedAtAction(nameof(GetRol), new { id = rol.IdRol }, rol);
             }
-
-            await _context.SaveChangesAsync();
-            return Ok($"Permisos actualizados para el rol {id}.");
+            catch (System.Exception ex)
+            {
+                return StatusCode(500, $"Error interno en PostRol: {ex.Message}");
+            }
         }
 
-        // ✅ PUT: api/Roles/5
+        // ✅ PUT: api/Roles/5 - Actualizar un rol
         [HttpPut("{id}")]
         public async Task<IActionResult> PutRol(int id, Role rol)
         {
@@ -119,7 +158,7 @@ namespace TechNova.API.Controllers
                 else
                     throw;
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 return StatusCode(500, $"Error interno en PutRol: {ex.Message}");
             }
@@ -127,24 +166,7 @@ namespace TechNova.API.Controllers
             return NoContent();
         }
 
-        // ✅ POST: api/Roles
-        [HttpPost]
-        public async Task<ActionResult<Role>> PostRol(Role rol)
-        {
-            try
-            {
-                _context.Roles.Add(rol);
-                await _context.SaveChangesAsync();
-
-                return CreatedAtAction(nameof(GetRol), new { id = rol.IdRol }, rol);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error interno en PostRol: {ex.Message}");
-            }
-        }
-
-        // ✅ DELETE: api/Roles/5
+        // ✅ DELETE: api/Roles/5 - Eliminar un rol solo si no tiene usuarios o permisos
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteRol(int id)
         {
@@ -166,10 +188,34 @@ namespace TechNova.API.Controllers
 
                 return NoContent();
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 return StatusCode(500, $"Error interno en DeleteRol: {ex.Message}");
             }
+        }
+
+        // ✅ POST: api/Roles/{id}/AsignarPermisos - Asignar lista de permisos a un rol
+        [HttpPost("{id}/AsignarPermisos")]
+        public async Task<IActionResult> AsignarPermisos(int id, [FromBody] List<int> permisosIds)
+        {
+            var rol = await _context.Roles
+                .Include(r => r.Permisoxrols)
+                .FirstOrDefaultAsync(r => r.IdRol == id);
+
+            if (rol == null)
+                return NotFound($"No existe un rol con id {id}.");
+
+            // Limpiar todos los permisos actuales
+            _context.Permisoxrols.RemoveRange(rol.Permisoxrols);
+
+            // Agregar los permisos que envía el front
+            foreach (var permisoId in permisosIds)
+            {
+                rol.Permisoxrols.Add(new Permisoxrol { FkRol = id, FkPermiso = permisoId });
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok($"Permisos actualizados para el rol {id}.");
         }
 
         private bool RolesExists(int id)

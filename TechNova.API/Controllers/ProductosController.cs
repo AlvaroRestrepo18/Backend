@@ -178,11 +178,25 @@ namespace TechNova.API.Controllers
 
                 return Ok(new { mensaje = $"Producto con ID {id} eliminado correctamente" });
             }
+            catch (DbUpdateException dbEx)
+            {
+                // 💥 Error típico de FK
+                return Conflict(new
+                {
+                    mensaje = "No se puede eliminar el producto porque está asociado a otros registros (por ejemplo, ventas o inventario).",
+                    detalle = dbEx.InnerException?.Message ?? dbEx.Message
+                });
+            }
             catch (Exception ex)
             {
-                return StatusCode(500, new { mensaje = "Error al eliminar producto", detalle = ex.Message });
+                return StatusCode(500, new
+                {
+                    mensaje = "Error inesperado al eliminar producto",
+                    detalle = ex.Message
+                });
             }
         }
+
 
         // 🔥 NUEVO ENDPOINT: Actualizar cantidad del producto
         [HttpPatch("{id}/actualizar-cantidad")]

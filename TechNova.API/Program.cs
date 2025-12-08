@@ -24,13 +24,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "fallback-key-minimo-32-caracteres-aqui-1234567890"))
+                Encoding.UTF8.GetBytes(
+                    builder.Configuration["Jwt:Key"]
+                    ?? "fallback-key-minimo-32-caracteres-aqui-1234567890"
+                )
+            )
         };
     });
 
 builder.Services.AddAuthorization();
 
-// 🚦 CORS (permite acceso desde tu frontend React)
+// 🚦 CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -40,7 +44,7 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader());
 });
 
-// ✅ Controladores y configuración JSON
+// Controladores + JSON
 builder.Services.AddControllers()
     .AddJsonOptions(x =>
     {
@@ -48,30 +52,40 @@ builder.Services.AddControllers()
         x.JsonSerializerOptions.WriteIndented = true;
     });
 
-// ✅ Swagger para pruebas
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ⚙️ Inyección de configuración
+// Inyección de configuración
 builder.Services.AddSingleton<IConfiguration>(builder.Configuration);
 
 var app = builder.Build();
 
-// ✅ Swagger visible en desarrollo
+// Swagger en desarrollo
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "TechNova API v1");
-        c.RoutePrefix = string.Empty; // 👈 Abre Swagger en raíz "/"
+        c.RoutePrefix = string.Empty;
     });
 }
 
-// ✅ Middleware principal (IMPORTANTE: UseAuthentication antes de UseAuthorization)
-app.UseCors("AllowAll");
+// ============================
+// 🔥 ORDEN CORRECTO DEL PIPELINE
+// ============================
+
 app.UseHttpsRedirection();
-app.UseAuthentication(); // 🔐 ESTA LÍNEA ES NUEVA
+app.UseCors("AllowAll");
+
+app.UseAuthentication();
+
+// 🔥 EL MIDDLEWARE DE PERMISOS DEBE IR ANTES DE UseAuthorization
+app.UseMiddleware<TechNova.API.Middleware.PermisoMiddleware>();
+
 app.UseAuthorization();
+
 app.MapControllers();
+
 app.Run();

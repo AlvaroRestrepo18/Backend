@@ -67,7 +67,9 @@ public class AuthController : ControllerBase
                     id = usuario.IdUsuario,
                     nombre = usuario.Nombre,
                     email = usuario.Email,
-                    rol = usuario.FkRolNavigation?.NombreRol ?? "Sin rol"
+                    rol = usuario.FkRolNavigation?.NombreRol ?? "Sin rol",
+                    idRol = usuario.FkRol
+                     
                 }
             });
         }
